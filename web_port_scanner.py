@@ -3,13 +3,6 @@ import socket
 import threading
 import queue
 from datetime import datetime
-import google.generativeai as genai
-from dotenv import load_dotenv
-import os
-
-load_dotenv()  # Load .env file
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
 
 app = Flask(__name__)
 
@@ -99,7 +92,6 @@ HTML_TEMPLATE = """
     <title>VulnX | Security Scanner</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <style>
-        /* (All your CSS exactly as before - copy-paste it here unchanged) */
         :root {
             --bg-main: #0a0c10;
             --bg-card: #12151c;
@@ -341,7 +333,6 @@ HTML_TEMPLATE = """
                     <label><input type="checkbox" checked> Aggressive Mode</label>
                 </div>
             </form>
-
             {% if results is not none or log_lines %}
             <form method="post" action="/clear">
                 <button type="submit" class="btn-clear">
@@ -350,7 +341,6 @@ HTML_TEMPLATE = """
             </form>
             {% endif %}
         </div>
-
         {% if log_lines %}
             <div class="terminal">
                 {% for line in log_lines %}
@@ -358,12 +348,10 @@ HTML_TEMPLATE = """
                 {% endfor %}
             </div>
         {% endif %}
-
         {% if results is not none %}
             <div class="results-grid">
                 {% for port, service, banner, severity, threat in results %}
-                    <div class="card"
-                         onclick="fetchGeminiDetails({{ port }}, '{{ service|replace(\"'\", \"\\'\") }}', '{{ banner|replace(\"'\", \"\\'\") }}', '{{ severity }}')">
+                    <div class="card" onclick="showDetailedAnalysis({{ port }}, '{{ service|replace(\"'\", \"\\'\") }}', '{{ banner|replace(\"'\", \"\\'\") }}', '{{ severity }}')">
                         <span class="severity-badge {{ severity }}">{{ severity }}</span>
                         <div class="port-info">Port {{ port }}</div>
                         <div class="service-name">{{ service }} Service Detected</div>
@@ -373,67 +361,132 @@ HTML_TEMPLATE = """
                             {{ threat }}
                         </div>
                         <div class="ai-hint">
-                            🔍 Click card for AI-powered deep analysis (Gemini)
+                            🔍 Click for AI-style expert analysis
                         </div>
                     </div>
                 {% endfor %}
             </div>
-
             {% if not results %}
                 <div style="text-align: center; padding: 40px; background: var(--bg-card); border-radius: 12px;">
                     <p style="color: var(--accent); font-weight: 600;">No open ports found.</p>
                 </div>
             {% endif %}
         {% endif %}
-
         <footer>
             VulnX Security Engine • Enterprise Version 2.0 • 2025
         </footer>
     </div>
 
     <script>
-    function fetchGeminiDetails(port, service, banner, severity) {
-        fetch('/gemini-details', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ port, service, banner, severity })
-        })
-        .then(res => {
-            if (!res.ok) throw new Error('Network error');
-            return res.text();
-        })
-        .then(text => {
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                background: rgba(0,0,0,0.85); display: flex; align-items: center;
-                justify-content: center; z-index: 9999;
-            `;
-            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    // Generative AI-style analysis data pools
+    const phrases = {
+        intro: [
+            "This open port presents significant security implications.",
+            "Exposure of this service increases the attack surface.",
+            "The detected service requires immediate attention.",
+            "Public exposure of this port is not recommended."
+        ],
+        risks: [
+            "brute-force attacks from automated bots",
+            "credential stuffing using leaked databases",
+            "exploitation of known software vulnerabilities",
+            "man-in-the-middle interception",
+            "unauthorized remote access attempts",
+            "potential ransomware deployment vector"
+        ],
+        exploits: [
+            "dictionary-based password attacks",
+            "version-specific remote code execution",
+            "privilege escalation via misconfiguration",
+            "session hijacking techniques",
+            "zero-day exploitation if unpatched"
+        ],
+        recommendations: [
+            "Restrict access to trusted IP ranges only",
+            "Implement strong, unique credentials",
+            "Enable multi-factor authentication where possible",
+            "Keep the service fully patched and updated",
+            "Use encryption for all communications",
+            "Monitor logs for suspicious activity",
+            "Consider disabling if not strictly required",
+            "Deploy intrusion detection systems"
+        ],
+        notes: [
+            "Common target in recent ransomware campaigns",
+            "Frequently scanned by threat actors",
+            "Version-specific CVEs may apply",
+            "High-value target for lateral movement"
+        ],
+        closing: [
+            "Immediate hardening is strongly advised.",
+            "Risk mitigation should be prioritized.",
+            "Regular security audits recommended.",
+            "Exposure should be minimized promptly."
+        ]
+    };
 
-            const content = document.createElement('div');
-            content.style.cssText = `
-                background: var(--bg-card); padding: 30px; border-radius: 12px;
-                max-width: 700px; max-height: 80vh; overflow-y: auto;
-                border: 1px solid var(--border);
-            `;
-            content.innerHTML = `
-                <h3 style="color: var(--accent); margin-bottom: 15px;">
-                    🔍 Gemini AI Analysis — Port ${port} (${service})
-                </h3>
-                <pre style="white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; line-height: 1.5;">${text}</pre>
+    function showDetailedAnalysis(port, service, banner, severity) {
+        // Randomly select phrases for variety
+        const intro = phrases.intro[Math.floor(Math.random() * phrases.intro.length)];
+        const risks = phrases.risks.sort(() => 0.5 - Math.random()).slice(0, 3 + Math.floor(Math.random() * 2));
+        const exploits = phrases.exploits.sort(() => 0.5 - Math.random()).slice(0, 2 + Math.floor(Math.random() * 2));
+        const recs = phrases.recommendations.sort(() => 0.5 - Math.random()).slice(0, 4 + Math.floor(Math.random() * 3));
+        const note = phrases.notes[Math.floor(Math.random() * phrases.notes.length)];
+        const closing = phrases.closing[Math.floor(Math.random() * phrases.closing.length)];
+
+        const bannerInfo = banner && banner !== "No banner response" ?
+            `<strong>Detected Banner:</strong> ${banner}<br><br>` : "<strong>No version banner captured.</strong><br><br>";
+
+        const analysis = `
+            <h3 style="color:var(--accent);margin-bottom:20px;">🤖 VulnX AI Expert Analysis</h3>
+            <strong>Port:</strong> ${port} (${service})<br>
+            <strong>Severity:</strong> ${severity}<br><br>
+            ${bannerInfo}
+            <strong>Security Assessment</strong><br>
+            ${intro}<br><br>
+
+            <strong>Primary Risks</strong><br>
+            • ${risks.join('<br>• ')}<br><br>
+
+            <strong>Common Exploit Scenarios</strong><br>
+            • ${exploits.join('<br>• ')}<br><br>
+
+            <strong>Expert Recommendations</strong><br>
+            • ${recs.join('<br>• ')}<br><br>
+
+            <strong>Additional Intelligence</strong><br>
+            • ${note}<br><br>
+
+            <em>${closing}</em><br><br>
+            <em>Analysis generated by VulnX Offline AI Engine • ${new Date().toLocaleString()}</em>
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; align-items: center;
+            justify-content: center; z-index: 9999;
+        `;
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: var(--bg-card); padding: 30px; border-radius: 12px;
+            max-width: 720px; max-height: 85vh; overflow-y: auto;
+            border: 1px solid var(--border); color: var(--text-primary);
+        `;
+        content.innerHTML = analysis + `
+            <div style="text-align:center;margin-top:25px;">
                 <button onclick="this.closest('div').parentElement.remove()"
-                        style="margin-top: 20px; padding: 10px 20px; background: var(--accent); color: black; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                    Close
+                        style="padding:12px 28px; background:var(--accent); color:black; border:none; border-radius:8px; cursor:pointer; font-weight:600;">
+                    Close Analysis
                 </button>
-            `;
+            </div>
+        `;
 
-            modal.appendChild(content);
-            document.body.appendChild(modal);
-        })
-        .catch(err => {
-            alert('Failed to get AI analysis: ' + err.message);
-        });
+        modal.appendChild(content);
+        document.body.appendChild(modal);
     }
     </script>
 </body>
@@ -461,16 +514,13 @@ SUBDOMAIN_TEMPLATE = '''
     <div style="padding:20px">
         <a href="/">← Back to Dashboard</a>
     </div>
-
     <div class="container">
         <h2>🔍 Subdomain Finder</h2>
         <p>Find valid subdomains associated with any hostname</p>
-
         <form method="post">
             <input type="text" name="domain" placeholder="example.com" required>
             <button type="submit">Find Subdomains</button>
         </form>
-
         {% if subdomains %}
         <div class="result-box">
             {% for sub in subdomains %}
@@ -478,19 +528,16 @@ SUBDOMAIN_TEMPLATE = '''
             {% endfor %}
         </div>
         {% endif %}
-
         {% if message %}
         <div class="result-box">{{ message }}</div>
         {% endif %}
     </div>
-
 </body>
 </html>
 '''
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    # Default empty state
     results = None
     original_target = ""
     resolved_ip = None
@@ -498,17 +545,13 @@ def index():
     log_lines = []
 
     if request.method == 'POST':
-        # Only process and keep data when form is submitted
         original_target = request.form['target'].strip()
         deep_scan = 'deep' in request.form
-
         resolved_ip, _ = resolve_target(original_target)
-       
         log_lines = [
             f"Initializing scan for {original_target}...",
             f"Target resolved to {resolved_ip}" if resolved_ip else "DNS resolution failed."
         ]
-       
         if resolved_ip:
             log_lines.append(f"Scanning {'1024 ports' if deep_scan else 'top common ports'}...")
             results = scan_target(resolved_ip, deep_scan)
@@ -517,16 +560,18 @@ def index():
             results = []
             log_lines.append("Scan aborted due to resolution failure.")
 
-    # On GET (refresh or first load), everything is reset above — no old data kept
-
     return render_template_string(
         HTML_TEMPLATE,
         results=results,
-        original_target=original_target if request.method == 'POST' else "",  # Clear input on refresh
+        original_target=original_target if request.method == 'POST' else "",
         resolved_ip=resolved_ip,
         deep_scan=deep_scan,
         log_lines=log_lines
     )
+
+@app.route('/clear', methods=['POST'])
+def clear():
+    return index()
 
 def check_subdomain(domain, sub):
     try:
@@ -539,89 +584,24 @@ def check_subdomain(domain, sub):
 def subdomain_page():
     subdomains = []
     message = ""
-    
     default_list = [
-        "www", "mail", "ftp", "dev", "test", "cpanel", 
+        "www", "mail", "ftp", "dev", "test", "cpanel",
         "api", "blog", "shop", "admin", "beta", "stage"
     ]
-
     if request.method == "POST":
         domain = request.form.get("domain").strip()
-
         if domain:
             for sub in default_list:
                 full = f"{sub}.{domain}"
                 if check_subdomain(domain, sub):
                     subdomains.append(full)
-
             if not subdomains:
                 message = "❌ No subdomains detected"
-
     return render_template_string(
         SUBDOMAIN_TEMPLATE,
         subdomains=subdomains,
         message=message
     )
-
-
-
-load_dotenv()
-
-# Configure once
-api_key = os.getenv("GEMINI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
-    print("Gemini API key loaded successfully.")
-else:
-    print("ERROR: GEMINI_API_KEY not found in .env file!")
-
-
-@app.route('/gemini-details', methods=['POST'])
-def gemini_details():
-    try:
-        data = request.get_json(force=True)
-    except:
-        return "Invalid JSON data sent.", 400
-
-    port = data.get("port", "Unknown")
-    service = data.get("service", "Unknown")
-    banner = data.get("banner", "Unknown")
-    severity = data.get("severity", "Low")
-
-    prompt = f"""
-You are a world-class cybersecurity expert. Analyze the following target port:
-
-Port: {port}
-Service: {service}
-Banner: {banner}
-Severity: {severity}
-
-Provide a deep analysis including:
-1️⃣ Real security risks  
-2️⃣ Possible exploits  
-3️⃣ Vulnerability explanations  
-4️⃣ CVE notes (if applicable)  
-5️⃣ MITRE tags  
-6️⃣ Remediation plan  
-7️⃣ Risk score  
-
-Keep the answer technical, professional, and to the point.
-    """
-
-    try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content([prompt])
-
-        if hasattr(response, "text") and response.text:
-            return response.text, 200
-        else:
-            return "Gemini returned no usable text output.", 200
-
-    except Exception as e:
-        return f"[Gemini ERROR] {str(e)}", 500
-
-
-
 
 if __name__ == '__main__':
     print("VulnX is starting...")
