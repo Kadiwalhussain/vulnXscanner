@@ -29,22 +29,55 @@ severity_map = {23: "Critical", 21: "High", 445: "High", 3389: "High", 22: "Medi
 
 def is_ipv6(address):
     """Check if an address is IPv6 format"""
+    if not address or not isinstance(address, str):
+        return False
     try:
+        # Use socket.inet_pton for strict validation
         socket.inet_pton(socket.AF_INET6, address)
         return True
     except (socket.error, OSError, AttributeError):
-        # Fallback regex check for IPv6
-        ipv6_pattern = r'^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$|^::1$|^::$'
-        if re.match(ipv6_pattern, address):
+        # Fallback: check for basic IPv6 format (but be stricter)
+        # Must have colons and valid hex characters
+        if '::' in address:
+            # Compressed format - check it's valid
+            parts = address.split('::')
+            if len(parts) > 2:
+                return False  # Can only have one ::
+            # Check each part
+            for part in address.split(':'):
+                if part and not re.match(r'^[0-9a-fA-F]{1,4}$', part):
+                    return False
             return True
-        return False
+        else:
+            # Full format - must have exactly 7 colons and 8 parts
+            parts = address.split(':')
+            if len(parts) != 8:
+                return False
+            for part in parts:
+                if not re.match(r'^[0-9a-fA-F]{1,4}$', part):
+                    return False
+            return True
 
 def is_ipv4(address):
     """Check if an address is IPv4 format"""
+    if not address or not isinstance(address, str):
+        return False
+    # Validate format first (must have 4 octets)
+    parts = address.split('.')
+    if len(parts) != 4:
+        return False
     try:
+        # Check each part is a valid number 0-255
+        for part in parts:
+            if not part.isdigit():
+                return False
+            num = int(part)
+            if num < 0 or num > 255:
+                return False
+        # Use socket.inet_aton for final validation
         socket.inet_aton(address)
         return True
-    except socket.error:
+    except (socket.error, ValueError):
         return False
 
 def get_address_family(address):
@@ -143,7 +176,14 @@ def scan_target(target_ip, deep_scan, callback=None):
 
 def resolve_target(target):
     """Resolve target to IP address, supporting both IPv4 and IPv6"""
+    if not target or not isinstance(target, str):
+        return None, target if target else ""
+    
     target = target.strip().replace("http://", "").replace("https://", "").split("/")[0]
+    
+    # Handle empty string after stripping
+    if not target:
+        return None, ""
     
     # Remove brackets from IPv6 addresses if present (e.g., [2001:db8::1])
     if target.startswith('[') and target.endswith(']'):
