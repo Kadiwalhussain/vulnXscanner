@@ -10,6 +10,20 @@ import secrets
 import uuid
 from flask import send_file
 
+# Load environment variables (GEMINI_API_KEY should be in .env)
+load_dotenv()
+
+# Configure the Gemini SDK correctly (global configuration)
+
+app = Flask(__name__)
+
+# Global Gemini client (created once)
+api_key = os.getenv("GEMINI_API_KEY")
+
+if not api_key:
+    raise ValueError("GEMINI_API_KEY not found in environment variables")
+
+client = genai.Client(api_key=api_key)
 app = Flask(__name__, 
     template_folder='../templates',
     static_folder='../static')
